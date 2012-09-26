@@ -47,12 +47,14 @@ void simulator_test(double expo, long nframe)
 
 	save= ct->saving();
 	save->setDirectory("./data");
- 	save->setPrefix("test_");
+	CtSaving::Parameters::PrefixCnt prefixCnt;
+	prefixCnt.prefix = "test_";
+	prefixCnt.nextNumber = 100;
+	prefixCnt.framesPerFile = 100;
+ 	save->setPrefix(prefixCnt);
 	save->setSuffix(".edf");
-	save->setNextNumber(100);
 	save->setFormat(CtSaving::EDF);
 	save->setSavingMode(CtSaving::AutoFrame);
-	save->setFramesPerFile(100);
 
 	Bin bin(2,2);
 	image= ct->image();

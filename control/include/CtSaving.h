@@ -81,23 +81,51 @@ namespace lima {
 	Append,			///< Append new data at the end of already existing files
       };	
 
+    class Stream;
+    class SaveContainer;
+
     struct LIMACORE_API Parameters 
     {
+      struct PrefixCnt
+      {
+	PrefixCnt(const std::string& arg_prefix = "",
+		  int arg_nextNumber = 0,
+		  int arg_timesUsed = -1,
+		  int arg_framesPerFile = 1) :
+	  prefix(arg_prefix),
+	  timesUsed(arg_timesUsed),
+	  nextNumber(arg_nextNumber),
+	  framesPerFile(arg_framesPerFile){}
+
+	std::string 	prefix;		///< prefix of the filename
+	int	    	timesUsed;	///< nb times used
+	long	    	nextNumber;	///< next file number
+	long		framesPerFile;	///< the number of images save in one files
+      };
+      typedef std::list<PrefixCnt> PrefixListType;
+
       std::string directory;	///< base path where the files will be saved
-      std::string prefix;	///< prefix of the filename
+      PrefixListType prefixs;
       std::string suffix;	///< suffix of the filename
       ImageType   imageType;
-      long nextNumber;		///< next file number
       FileFormat fileFormat;	///< the saving format (EDF,CBF...)
       SavingMode savingMode;	///< saving mode (automatic,manual...)
       OverwritePolicy overwritePolicy; ///< how you the saving react it find existing filename
       ManagedMode managedMode;	///< two option either harware (manage by SDK,hardware) or software (Lima core)
       std::string indexFormat;	///< ie: %.4d if you want 4 digits
-      long framesPerFile;	///< the number of images save in one files
       long nbframes;
       
       Parameters();
       void checkValid() const;
+    private:
+      friend class Stream;
+      friend class SaveContainer;
+      void _initCurrentPrefix();
+      void _nextPrefix();
+      PrefixCnt& _currentPrefix() const;
+
+      PrefixListType::iterator	m_current_prefix;
+      int			m_prefix_times_used;
     };
     
     typedef std::pair<std::string, std::string> HeaderValue;
@@ -112,15 +140,16 @@ namespace lima {
     void setDirectory(const std::string &directory, int stream_idx=0);
     void getDirectory(std::string& directory, int stream_idx=0) const;
 
+    void addPrefix(const Parameters::PrefixCnt &prefix,int stream_idx=0);
     void setPrefix(const std::string &prefix, int stream_idx=0);
-    void getPrefix(std::string& prefix, int stream_idx=0) const;
+    void setPrefix(const Parameters::PrefixCnt &prefix,int stream_idx = 0);
+    void setPrefix(const Parameters::PrefixListType &prefix, int stream_idx=0);
+    void getPrefix(Parameters::PrefixListType& prefix, int stream_idx=0) const;
+    void clearPrefix();
 
     void setSuffix(const std::string &suffix, int stream_idx=0);
     void getSuffix(std::string& suffix, int stream_idx=0) const;
     
-    void setNextNumber(long number, int stream_idx=0);
-    void getNextNumber(long& number, int stream_idx=0) const;
-
     void setFormat(FileFormat format, int stream_idx=0);
     void getFormat(FileFormat& format, int stream_idx=0) const;
 
@@ -137,10 +166,6 @@ namespace lima {
 
     void setOverwritePolicy(OverwritePolicy policy, int stream_idx=0);
     void getOverwritePolicy(OverwritePolicy& policy, int stream_idx=0) const;
-
-    void setFramesPerFile(unsigned long frames_per_file, int stream_idx=0);
-    void getFramePerFile(unsigned long& frames_per_file, 
-			 int stream_idx=0) const;
     
     void setManagedMode(ManagedMode mode);
     void getManagedMode(ManagedMode &mode) const;
@@ -182,8 +207,6 @@ namespace lima {
 
     void setStreamActive(int stream_idx, bool  active);
     void getStreamActive(int stream_idx, bool& active) const;
-
-    class Stream;
 
     class LIMACORE_API SaveContainer
       {
@@ -384,6 +407,36 @@ namespace lima {
     bool _newFrameWrite(int);
   };
 
+  inline std::ostream& operator<<(std::ostream &os,
+				  const CtSaving::Parameters::PrefixCnt &prefixCnt)
+  {
+    os << "<"
+       << "prefix=" << prefixCnt.prefix << ", "
+       << "timesUsed=" << prefixCnt.timesUsed << ", "
+       << "nextNumber=" << prefixCnt.nextNumber << ", "
+       << "framesPerFile=" << prefixCnt.framesPerFile
+       << ">";
+    return os;
+  }
+
+  inline std::ostream& operator<<(std::ostream &os,
+				  const CtSaving::Parameters::PrefixListType &prefix)
+  {
+    os << "prefixs=";
+    if(prefix.size() > 1)
+      os << "<";
+    for(CtSaving::Parameters::PrefixListType::const_iterator i = prefix.begin();
+	i != prefix.end();++i)
+      {
+	if(i != prefix.begin())
+	  os << ", ";
+	os << *i;
+      }
+    if(prefix.size() > 1)
+      os << ">";
+    return os;
+  }
+  
   inline std::ostream& operator<<(std::ostream &os,const CtSaving::Parameters &params)
   {
     const char *aFileFormatHumanPt;
@@ -423,31 +476,37 @@ namespace lima {
 
     os << "<"
        << "directory=" << params.directory << ", "
-       << "prefix=" << params.prefix << ", "
+       << params.prefixs << ", "
        << "suffix=" << params.suffix << ", "
-       << "nextNumber=" << params.nextNumber << ", "
        << "fileFormat=" << params.fileFormat << "," << aFileFormatHumanPt << ", "
        << "savingMode=" << params.savingMode << "," << aSavingModeHumanPt << ", "
        << "overwritePolicy=" << params.overwritePolicy << "," << anOverwritePolicyHumanPt << ", "
-       << "framesPerFile=" << params.framesPerFile << ", "
        << "nbframes=" << params.nbframes
        << ">";
     return os;
   }
 
+  inline bool operator ==(const CtSaving::Parameters::PrefixCnt& a,
+			  const CtSaving::Parameters::PrefixCnt& b)
+  {
+    return (a.prefix 		== b.prefix 	&&
+	    a.timesUsed 	== b.timesUsed 	&&
+	    a.nextNumber 	== b.nextNumber &&
+	    a.framesPerFile 	== b.framesPerFile);
+  }
+			  
+  
   inline bool operator ==(const CtSaving::Parameters& a,
 			  const CtSaving::Parameters& b)
   {
     return ((a.directory       == b.directory)       &&
-	    (a.prefix          == b.prefix)          &&
+	    (a.prefixs         == b.prefixs)         &&
 	    (a.suffix          == b.suffix)          &&
 	    (a.imageType       == b.imageType)       &&
-	    (a.nextNumber      == b.nextNumber)      &&
 	    (a.fileFormat      == b.fileFormat)      &&
 	    (a.savingMode      == b.savingMode)      &&
 	    (a.overwritePolicy == b.overwritePolicy) &&
 	    (a.indexFormat     == b.indexFormat)     &&
-	    (a.framesPerFile   == b.framesPerFile)   &&
 	    (a.nbframes        == b.nbframes));
   }
 

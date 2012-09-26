@@ -21,6 +21,7 @@
 //###########################################################################
 #include <cmath>
 #include <sstream>
+#include <algorithm>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -138,9 +139,10 @@ private:
 /** @brief Parameters default constructor
  */
 CtSaving::Parameters::Parameters()
-  : nextNumber(0), fileFormat(RAW), savingMode(Manual), 
+  : fileFormat(RAW), savingMode(Manual), 
     overwritePolicy(Abort),managedMode(Software),
-    indexFormat("%04d"),framesPerFile(1)
+    indexFormat("%04d"),
+    nbframes(-1)
 {
 }
 
@@ -163,6 +165,36 @@ void CtSaving::Parameters::checkValid() const
     }
 }
 
+void CtSaving::Parameters::_initCurrentPrefix()
+{
+  m_current_prefix = prefixs.begin();
+  m_prefix_times_used = 0;
+}
+
+void CtSaving::Parameters::_nextPrefix()
+{
+  if(m_current_prefix != prefixs.end())
+    {
+      if(m_current_prefix->timesUsed > 0)
+	{
+	  if(++m_prefix_times_used == m_current_prefix->timesUsed)
+	    {
+	      m_prefix_times_used = 0;
+	      if(++m_current_prefix == prefixs.end())
+		m_current_prefix = prefixs.begin();
+	    }
+	}
+    }
+}
+
+CtSaving::Parameters::PrefixCnt& CtSaving::Parameters::_currentPrefix() const
+{
+  static Parameters::PrefixCnt emptyPrefix;
+  if(m_current_prefix != prefixs.end())
+    return *m_current_prefix;
+  else
+    return emptyPrefix;
+}
 
 //@brief constructor
 CtSaving::Stream::Stream(CtSaving& aCtSaving, int idx)
@@ -206,8 +238,17 @@ void CtSaving::Stream::setParameters(const CtSaving::Parameters& pars)
 { 
   DEB_MEMBER_FUNCT();
 
-  if (pars.nextNumber == m_acquisition_pars.nextNumber)
-    m_pars.nextNumber = pars.nextNumber;
+  Parameters::PrefixListType::const_iterator parIter = pars.prefixs.begin();
+  Parameters::PrefixListType::iterator acqIter = m_acquisition_pars.prefixs.begin();
+  Parameters::PrefixListType::iterator mParIter = m_pars.prefixs.begin();
+  while(parIter != pars.prefixs.end() &&
+	acqIter != m_acquisition_pars.prefixs.end() &&
+	mParIter != m_pars.prefixs.end())
+    {
+      if (parIter->nextNumber == acqIter->nextNumber)
+	mParIter->nextNumber = parIter->nextNumber;
+    }
+
 
   if (pars == m_pars)
     return;
@@ -248,15 +289,18 @@ void CtSaving::Stream::updateParameters()
 {
   DEB_MEMBER_FUNCT();
 
-  if (!m_pars_dirty_flag)
-    return;
+  if (m_pars_dirty_flag)
+    {
 
-  if (m_pars.fileFormat != m_acquisition_pars.fileFormat)
-    createSaveContainer();
+      if (m_pars.fileFormat != m_acquisition_pars.fileFormat)
+	createSaveContainer();
 
-  m_acquisition_pars = m_pars;
-  m_pars_dirty_flag = false;
+      m_acquisition_pars = m_pars;
+      m_pars_dirty_flag = false;
+    }
+  m_acquisition_pars._initCurrentPrefix();
 }
+
 
 void CtSaving::Stream::createSaveContainer()
 {
@@ -495,6 +539,20 @@ void CtSaving::getDirectory(std::string& directory, int stream_idx) const
 
   DEB_RETURN() << DEB_VAR1(directory);
 }
+/** @brief add a filename prefix to a saving stream
+ */
+void CtSaving::addPrefix(const CtSaving::Parameters::PrefixCnt &prefix,
+			 int stream_idx)
+{
+  DEB_MEMBER_FUNCT();
+  DEB_PARAM() << DEB_VAR2(prefix,stream_idx);
+
+  AutoMutex aLock(m_cond.mutex());
+  Stream& stream = getStream(stream_idx);
+  Parameters pars = stream.getParameters(Auto);
+  pars.prefixs.push_back(prefix);
+  stream.setParameters(pars);
+}
 /** @brief set the filename prefix for a saving stream
  */
 void CtSaving::setPrefix(const std::string &prefix, int stream_idx)
@@ -505,12 +563,41 @@ void CtSaving::setPrefix(const std::string &prefix, int stream_idx)
   AutoMutex aLock(m_cond.mutex());
   Stream& stream = getStream(stream_idx);
   Parameters pars = stream.getParameters(Auto);
-  pars.prefix = prefix;
+  pars.prefixs.clear();
+  pars.prefixs.push_back(Parameters::PrefixCnt(prefix));
   stream.setParameters(pars);
 }
-/** @brief get the filename prefix for a saving stream
+/** @brief set the full prefix (prefix file name,times used,next number)
  */
-void CtSaving::getPrefix(std::string& prefix, int stream_idx) const
+void CtSaving::setPrefix(const CtSaving::Parameters::PrefixCnt &prefix,int stream_idx)
+{
+  DEB_MEMBER_FUNCT();
+  DEB_PARAM() << DEB_VAR2(prefix, stream_idx);
+  
+  AutoMutex aLock(m_cond.mutex());
+  Stream& stream = getStream(stream_idx);
+  Parameters pars = stream.getParameters(Auto);
+  pars.prefixs.clear();
+  pars.prefixs.push_back(prefix);
+  stream.setParameters(pars);
+}
+
+/** @brief set the list of prefixs (prefix file name,times used,next number)
+ */
+void CtSaving::setPrefix(const CtSaving::Parameters::PrefixListType& prefixs,int stream_idx)
+{
+    DEB_MEMBER_FUNCT();
+    DEB_PARAM() << DEB_VAR2(prefixs, stream_idx);
+
+    AutoMutex aLock(m_cond.mutex());
+    Stream& stream = getStream(stream_idx);
+    Parameters pars = stream.getParameters(Auto);
+    pars.prefixs = prefixs;
+    stream.setParameters(pars);
+}
+/** @brief get filenames prefix with their times used for a saving stream
+ */
+void CtSaving::getPrefix(CtSaving::Parameters::PrefixListType& prefix, int stream_idx) const
 {
   DEB_MEMBER_FUNCT();
   DEB_PARAM() << DEB_VAR1(stream_idx);
@@ -518,9 +605,23 @@ void CtSaving::getPrefix(std::string& prefix, int stream_idx) const
   AutoMutex aLock(m_cond.mutex());
   const Stream& stream = getStream(stream_idx);
   const Parameters& pars = stream.getParameters(Auto);
-  prefix = pars.prefix;
+  prefix = pars.prefixs;
 
   DEB_RETURN() << DEB_VAR1(prefix);
+}
+/** @brief clear all filenames prefix
+ */
+void CtSaving::clearPrefix()
+{
+  DEB_MEMBER_FUNCT();
+  AutoMutex aLock(m_cond.mutex());
+  for(int i = 0;i <  m_nb_stream;++i)
+    {
+      Stream &stream = *m_stream[i];
+      Parameters& pars = stream.getParameters(Auto);
+      pars.prefixs.clear();
+      stream.setParameters(pars);
+    }
 }
 /** @brief set the filename suffix for a saving stream
  */
@@ -548,33 +649,6 @@ void CtSaving::getSuffix(std::string& suffix, int stream_idx) const
   suffix = pars.suffix;
 
   DEB_RETURN() << DEB_VAR1(suffix);
-}
-/** @brief set the next number for the filename for a saving stream
- */
-void CtSaving::setNextNumber(long number, int stream_idx)
-{
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR2(number, stream_idx);
-
-  AutoMutex aLock(m_cond.mutex());
-  Stream& stream = getStream(stream_idx);
-  Parameters pars = stream.getParameters(Auto);
-  pars.nextNumber = number;
-  stream.setParameters(pars);
-}
-/** @brief get the next number for the filename for a saving stream
- */
-void CtSaving::getNextNumber(long& number, int stream_idx) const
-{
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR1(stream_idx);
-  
-  AutoMutex aLock(m_cond.mutex());
-  const Stream& stream = getStream(stream_idx);
-  const Parameters& pars = stream.getParameters(Auto);
-  number = pars.nextNumber;
-
-  DEB_RETURN() << DEB_VAR1(number);
 }
 /** @brief set the saving format for a saving stream
  */
@@ -657,34 +731,6 @@ void CtSaving::getOverwritePolicy(OverwritePolicy& policy,
   policy = pars.overwritePolicy;
 
   DEB_RETURN() << DEB_VAR1(policy);
-}
-/** @brief set the number of frame saved per file for a saving stream
- */
-void CtSaving::setFramesPerFile(unsigned long frames_per_file, int stream_idx)
-{
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR2(frames_per_file, stream_idx);
-
-  AutoMutex aLock(m_cond.mutex());
-  Stream& stream = getStream(stream_idx);
-  Parameters pars = stream.getParameters(Auto);
-  pars.framesPerFile = frames_per_file;
-  stream.setParameters(pars);
-}
-/** @brief get the number of frame saved per file for a saving stream
- */
-void CtSaving::getFramePerFile(unsigned long& frames_per_file, 
-			       int stream_idx) const
-{
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR1(stream_idx);
-
-  AutoMutex aLock(m_cond.mutex());
-  const Stream& stream = getStream(stream_idx);
-  const Parameters& pars = stream.getParameters(Auto);
-  frames_per_file = pars.framesPerFile;
-
-  DEB_RETURN() << DEB_VAR1(frames_per_file);
 }
 
 /** @brief set who will manage the saving.
@@ -1467,7 +1513,7 @@ void CtSaving::SaveContainer::writeFile(Data &aData,HeaderMap &aHeader)
       THROW_CTL_ERROR(Error) << "Save unknown error";
     }
 
-  if(++m_written_frames == pars.framesPerFile) {
+  if(++m_written_frames == pars._currentPrefix().framesPerFile) {
     try {
       close();
     } catch (...) {
@@ -1533,10 +1579,12 @@ void CtSaving::SaveContainer::open(const CtSaving::Parameters &pars)
 
   if(!m_file_opened)
     {
+      Parameters::PrefixCnt &aCurrent = pars._currentPrefix();
       char idx[64];
-      snprintf(idx,sizeof(idx),pars.indexFormat.c_str(),pars.nextNumber);
+      snprintf(idx,sizeof(idx),pars.indexFormat.c_str(),aCurrent.nextNumber);
+      const std::string &prefix = aCurrent.prefix;
 
-      std::string aFileName = pars.directory + DIR_SEPARATOR + pars.prefix + idx + pars.suffix;
+      std::string aFileName = pars.directory + DIR_SEPARATOR + prefix + idx + pars.suffix;
       DEB_TRACE() << DEB_VAR1(aFileName);
 
       if(pars.overwritePolicy == Abort && 
@@ -1610,7 +1658,8 @@ void CtSaving::SaveContainer::close()
   m_file_opened = false;
   m_written_frames = 0;
   Parameters& pars = m_stream.getParameters(Acq);
-  ++pars.nextNumber;
+  ++pars._currentPrefix().nextNumber;
+  pars._nextPrefix();
 }
 
 /** @brief check if all file can be written
@@ -1622,124 +1671,143 @@ void CtSaving::Stream::checkWriteAccess()
   std::string output;
   // check if directory exist
   DEB_TRACE() << "Check if directory exist";
-  if(!access(m_pars.directory.c_str(),F_OK))
+  if(!access(m_acquisition_pars.directory.c_str(),F_OK))
     {
       // check if it's a directory
       struct stat aDirectoryStat;
-      if(stat(m_pars.directory.c_str(),&aDirectoryStat))
+      if(stat(m_acquisition_pars.directory.c_str(),&aDirectoryStat))
 	{
-	  output = "Can stat directory : " + m_pars.directory;
+	  output = "Can stat directory : " + m_acquisition_pars.directory;
 	  THROW_CTL_ERROR(Error) << output;
 	}
       DEB_TRACE() << "Check if it's really a directory";
       if(!S_ISDIR(aDirectoryStat.st_mode))
 	{
-	  output = "Path : " + m_pars.directory + " is not a directory";
+	  output = "Path : " + m_acquisition_pars.directory + " is not a directory";
 	  THROW_CTL_ERROR(Error) << output;
 	}
 
       // check if it's writtable
       DEB_TRACE() << "Check if directory is writtable";
-      if(access(m_pars.directory.c_str(),W_OK))
+      if(access(m_acquisition_pars.directory.c_str(),W_OK))
 	{
-	  output = "Directory : " + m_pars.directory + " is not writtable";
+	  output = "Directory : " + m_acquisition_pars.directory + " is not writtable";
 	  THROW_CTL_ERROR(Error) << output;
 	}
     }
   else
     {
-      output = "Directory : " + m_pars.directory + " doesn't exist";
+      output = "Directory : " + m_acquisition_pars.directory + " doesn't exist";
       THROW_CTL_ERROR(Error) << output;
     }
 
   // test all file is mode == Abort
-  if(m_pars.overwritePolicy == Abort)
+  if(m_acquisition_pars.overwritePolicy == Abort)
     {
-      
-      CtAcquisition *anAcq = m_saving.m_ctrl.acquisition();
-      int nbAcqFrames;
-      anAcq->getAcqNbFrames(nbAcqFrames);
-      int framesPerFile = m_pars.framesPerFile;
-      int nbFiles = (nbAcqFrames + framesPerFile - 1) / framesPerFile;
-      int firstFileNumber = m_acquisition_pars.nextNumber;
-      int lastFileNumber = m_acquisition_pars.nextNumber + nbFiles - 1;
-
 #ifdef WIN32
       HANDLE hFind;
       WIN32_FIND_DATA FindFileData;
       const int maxNameLen = FILENAME_MAX;
       char filesToSearch[ maxNameLen];
 
-      sprintf_s(filesToSearch,FILENAME_MAX, "%s/*.*", m_pars.directory.c_str());
+      sprintf_s(filesToSearch,FILENAME_MAX, "%s/*.*", m_acquisition_pars.directory.c_str());
       if((hFind = FindFirstFile(filesToSearch, &FindFileData)) == INVALID_HANDLE_VALUE)
 #else
       struct dirent buffer;
       struct dirent* result;
       const int maxNameLen = 256;
 
-      DIR *aDirPt = opendir(m_pars.directory.c_str());
+      DIR *aDirPt = opendir(m_acquisition_pars.directory.c_str());
       if(!aDirPt)
 #endif
 	{
-	  output = "Can't open directory : " + m_pars.directory;
+	  output = "Can't open directory : " + m_acquisition_pars.directory;
 	  THROW_CTL_ERROR(Error) << output;
 	}
-
       
-      bool errorFlag = false;
-      char testString[maxNameLen];
-      snprintf(testString,sizeof(testString),
-	       "%s%s%s",
-	       m_pars.prefix.c_str(),
-	       m_pars.indexFormat.c_str(),
-	       m_pars.suffix.c_str());
+      CtAcquisition *anAcq = m_saving.m_ctrl.acquisition();
+      int nbAcqFrames;
+      anAcq->getAcqNbFrames(nbAcqFrames);
+      std::vector<int> aLastFileNumberPerPrefix(m_acquisition_pars.prefixs.size(),0);
+      while(nbAcqFrames)
+	{
+	  int prefixIndex = 0;
+	  for(Parameters::PrefixListType::iterator prefixIter = m_acquisition_pars.prefixs.begin();
+	      prefixIter != m_acquisition_pars.prefixs.end() && nbAcqFrames;++prefixIter,++prefixIndex)
+	    {
+	      int framesPerFile = prefixIter->framesPerFile;
+	      int nbFramesSavedWithThisPrefix = 
+		prefixIter->timesUsed <= 0 ? nbAcqFrames :
+		std::min(int(prefixIter->timesUsed * prefixIter->framesPerFile),
+			 nbAcqFrames);
 
-      char firstFileName[maxNameLen],lastFileName[maxNameLen];
-      snprintf(firstFileName, maxNameLen, testString, firstFileNumber);
-      snprintf(lastFileName, maxNameLen, testString, lastFileNumber);
-      DEB_TRACE() << "Test if file between: " DEB_VAR2(firstFileName,lastFileName);
+	      int nbFiles = (nbFramesSavedWithThisPrefix + framesPerFile - 1) / framesPerFile;
+	      int previousLastFileNumber = aLastFileNumberPerPrefix[prefixIndex];
+	      int firstFileNumber = prefixIter->nextNumber + previousLastFileNumber;
+	      int lastFileNumber = prefixIter->nextNumber + 
+		previousLastFileNumber + nbFiles - 1;
+	      aLastFileNumberPerPrefix[prefixIndex] += nbFiles;
+	      nbAcqFrames -= nbFramesSavedWithThisPrefix;
 
-      char *fname;
+	      bool errorFlag = false;
+	      char testString[maxNameLen];
+	      snprintf(testString,sizeof(testString),
+		       "%s%s%s",
+		       prefixIter->prefix.c_str(),
+		       m_acquisition_pars.indexFormat.c_str(),
+		       m_acquisition_pars.suffix.c_str());
+	  
+	      char firstFileName[maxNameLen],lastFileName[maxNameLen];
+	      snprintf(firstFileName, maxNameLen, testString, firstFileNumber);
+	      snprintf(lastFileName, maxNameLen, testString, lastFileNumber);
+	      DEB_TRACE() << "Test if file between: " DEB_VAR2(firstFileName,lastFileName);
 
-      int fileIndex;
+	      char *fname;
+	      
+	      int fileIndex;
 
 #ifdef WIN32
-      BOOL doIt = true;
-      while(!errorFlag && doIt) {
-        fname = FindFileData.cFileName;
-        doIt = FindNextFile(hFind, &FindFileData);
-
-	if(sscanf_s(fname,testString, &fileIndex) == 1)
+	      BOOL doIt = true;
+	      while(!errorFlag && doIt) {
+		fname = FindFileData.cFileName;
+		doIt = FindNextFile(hFind, &FindFileData);
+	    
+		if(sscanf_s(fname,testString, &fileIndex) == 1)
 #else
-      int returnFlag;    // not used???
-      while(!errorFlag && 
-          !(returnFlag = readdir_r(aDirPt,&buffer,&result)) && result){
-        fname = result->d_name;
-	if(sscanf(result->d_name,testString,&fileIndex) == 1)
+	      while(!errorFlag && 
+		    !readdir_r(aDirPt,&buffer,&result) && result){
+		fname = result->d_name;
+		if(sscanf(result->d_name,testString,&fileIndex) == 1)
 #endif
-	    {
-	      char auxFileName[maxNameLen];
-	      snprintf(auxFileName,maxNameLen,testString,fileIndex);
-	      if((strncmp(fname, auxFileName, maxNameLen) == 0) &&
-		        (fileIndex >= firstFileNumber) && (fileIndex <= lastFileNumber))
+		  {
+		    char auxFileName[maxNameLen];
+		    snprintf(auxFileName,maxNameLen,testString,fileIndex);
+		    if((strncmp(fname, auxFileName, maxNameLen) == 0) &&
+		       (fileIndex >= firstFileNumber) && (fileIndex <= lastFileNumber))
 		      {
 		        output = "File : ";
 		        output += fname;
 		        output += " already exist";
 		        errorFlag = true;
 		      }
-	    } // if sscanf
-  } // while
+		  } // if sscanf
+	        } // while
 
 
 #ifdef WIN32
-      FindClose(hFind);
+	      FindClose(hFind);
+	      hFind = FindFirstFile(filesToSearch, &FindFileData);
 #else
-      closedir(aDirPt);
+	      rewinddir(aDirPt);
 #endif
-
-
-      if(errorFlag)
+	      if(errorFlag)
 	        THROW_CTL_ERROR(Error) << output;
-    } // if(m_pars.overwritePolicy == Abort)
+	    } // for
+	  } // end while(nbAcqFrames)
+#ifdef WIN32
+	  FindClose(hFind);
+#else
+	closedir(aDirPt);
+#endif
+    } // if(m_acquisition_pars.overwritePolicy == Abort)
 }

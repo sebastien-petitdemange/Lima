@@ -98,6 +98,69 @@ return aReturnTuple;
 
 };
 
+%MappedType CtSaving::Parameters::PrefixListType
+{
+%TypeHeaderCode
+#include <CtSaving.h>
+%End
+
+%ConvertToTypeCode
+  if(sipIsErr == NULL)
+    {
+      bool aReturnFlag = PyList_Check(sipPy);
+      for(int i = 0;aReturnFlag && i < PyList_Size(sipPy);++i)
+	aReturnFlag = sipCanConvertToType(PyList_GET_ITEM(sipPy,i),
+					  sipType_CtSaving_Parameters_PrefixCnt,SIP_NOT_NONE);
+      return aReturnFlag;
+    }
+  
+  CtSaving::Parameters::PrefixListType *aPrefixsPt = new CtSaving::Parameters::PrefixListType();
+  for(int i = 0;i < PyList_Size(sipPy);++i)
+    {
+      int state;
+      CtSaving::Parameters::PrefixCnt *aCnt = 
+	reinterpret_cast<CtSaving::Parameters::PrefixCnt*>(sipConvertToType(PySequence_Fast_GET_ITEM(sipPy,i),
+									    sipType_CtSaving_Parameters_PrefixCnt, 
+									    0,
+									    SIP_NOT_NONE,
+									    &state,sipIsErr));
+      if(*sipIsErr)
+	{
+	  sipReleaseType(aCnt,sipType_CtSaving_Parameters_PrefixCnt,state);
+	  delete aPrefixsPt;
+	  return 0;
+	}
+      aPrefixsPt->push_back(*aCnt);
+      sipReleaseType(aCnt,sipType_CtSaving_Parameters_PrefixCnt,state);
+    }
+  *sipCppPtr = aPrefixsPt;
+  return sipGetState(sipTransferObj);
+%End
+     
+%ConvertFromTypeCode
+  PyObject *l;
+  if(!(l = PyList_New(sipCpp->size())))
+    return NULL;
+
+  sipTransferObj = NULL;
+  int aListIndex = 0;
+  for(CtSaving::Parameters::PrefixListType::const_iterator i = sipCpp->begin();
+      i != sipCpp->end();++i,++aListIndex)
+    {
+      CtSaving::Parameters::PrefixCnt *aCnt = new CtSaving::Parameters::PrefixCnt(*i);
+      PyObject *wobj = sipConvertFromNewType(aCnt,sipType_CtSaving_Parameters_PrefixCnt,sipTransferObj);
+      if(!wobj)
+	{
+	  delete aCnt;
+	  Py_DECREF(l);
+	  return NULL;
+	}
+      PyList_SET_ITEM(l,aListIndex,wobj);
+    }
+  return l;
+%End
+};
+
 class CtSaving 
 {
 %TypeHeaderCode
@@ -138,16 +201,36 @@ using namespace lima;
     };	
 
     struct Parameters {
+      struct PrefixCnt
+      {
+	PrefixCnt(const std::string& arg_prefix = "",
+		  int arg_nextNumber = 0,
+		  int arg_timesUsed = -1,
+		  int arg_framesPerFile = 1);
+
+	std::string 	prefix;
+	int	    	timesUsed;
+	long	    	nextNumber;
+	long		framesPerFile;
+
+	const char* __repr__();
+%MethodCode
+	std::ostringstream str;
+	str << *sipCpp;	
+	const std::string& tmpString = str.str();
+	sipRes = tmpString.c_str();
+%End
+      };
+      typedef std::list<PrefixCnt> PrefixListType;
+
       std::string directory;
-      std::string prefix;
+      PrefixListType prefixs;
       std::string suffix;
       ImageType   imageType;
-      long nextNumber;
       CtSaving::FileFormat fileFormat;
       CtSaving::SavingMode savingMode;
       CtSaving::OverwritePolicy overwritePolicy;
       std::string indexFormat;
-      long framesPerFile;
       long nbframes;
 
       Parameters();
@@ -171,14 +254,15 @@ using namespace lima;
     void setDirectory(const std::string &directory, int stream_idx=0);
     void getDirectory(std::string &directory /Out/, int stream_idx=0) const;
 
+    void addPrefix(const Parameters::PrefixCnt &prefix,int stream_idx=0);
     void setPrefix(const std::string &prefix, int stream_idx=0);
-    void getPrefix(std::string &prefix /Out/, int stream_idx=0) const;
+    void setPrefix(const Parameters::PrefixCnt &prefix,int stream_idx = 0);
+    void setPrefix(const Parameters::PrefixListType &prefix, int stream_idx=0);
+    void getPrefix(Parameters::PrefixListType& prefix /Out/, int stream_idx=0) const;
+    void clearPrefix();
 
     void setSuffix(const std::string &suffix, int stream_idx=0);
     void getSuffix(std::string &suffix /Out/, int stream_idx=0) const;
-
-    void setNextNumber(long number, int stream_idx=0);
-    void getNextNumber(long& number, int stream_idx=0) const;
 
     void setFormat(FileFormat format, int stream_idx=0);
     void getFormat(FileFormat &format /Out/, int stream_idx=0) const;
@@ -191,10 +275,6 @@ using namespace lima;
     void setOverwritePolicy(OverwritePolicy policy, int stream_idx=0);
     void getOverwritePolicy(OverwritePolicy& policy /Out/, 
                             int stream_idx=0) const;
-
-    void setFramesPerFile(unsigned long frames_per_file, int stream_idx=0);
-    void getFramePerFile(unsigned long& frames_per_file /Out/, 
-                         int stream_idx=0) const;
 
     // --- common headers
 
