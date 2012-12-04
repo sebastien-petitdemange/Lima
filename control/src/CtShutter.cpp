@@ -127,6 +127,17 @@ void CtShutter::reset()
       m_pars = m_hw_pars;
     }
 }
+void CtShutter::getParameters(CtShutter::Parameters& pars) const
+{
+  DEB_MEMBER_FUNCT();
+  CHECK_AVAILABILITY(pars = m_pars);
+}
+
+void CtShutter::setParameters(const CtShutter::Parameters& pars)
+{
+  DEB_MEMBER_FUNCT();
+  CHECK_AVAILABILITY(m_pars = pars);
+}
 /** @brief apply cache parameters to hardware
  */
 void CtShutter::apply()

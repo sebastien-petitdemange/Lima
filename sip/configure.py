@@ -251,7 +251,7 @@ def main():
 
         else:
             makefile.extra_libs = ['pthread','lima%s' % modName]
-            makefile.extra_cxxflags = ['-pthread', '-g','-DWITH_SPS_IMAGE'] + extra_cxxflags
+            makefile.extra_cxxflags = ['-pthread', '-g','-DWITH_SPS_IMAGE','-DWITH_CONFIG'] + extra_cxxflags
             makefile.extra_lib_dirs = [rootName('build')]
         makefile.extra_cxxflags.extend(['-I' + x for x in extraIncludes])
         

@@ -141,9 +141,10 @@ private:
 /** @brief Parameters default constructor
  */
 CtSaving::Parameters::Parameters()
-  : nextNumber(0), fileFormat(RAW), savingMode(Manual), 
+  : imageType(Bpp8),nextNumber(0), fileFormat(RAW), savingMode(Manual), 
     overwritePolicy(Abort),
-    indexFormat("%04d"),framesPerFile(1)
+    indexFormat("%04d"),framesPerFile(1),
+    nbframes(0)
 {
 }
 

@@ -49,6 +49,9 @@ namespace lima {
     ~CtShutter();
     bool hasCapability() const;
 
+    void setParameters(const Parameters &pars);
+    void getParameters(Parameters &pars) const;
+
     void getModeList(ShutterModeList& mode_list) const;
     
     bool checkMode(ShutterMode shut_mode) const;

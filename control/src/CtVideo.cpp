@@ -305,8 +305,13 @@ void CtVideo::setParameters(const Parameters &pars)
   if(m_pars.roi != pars.roi) 			m_pars_modify_mask |= PARMODIFYMASK_ROI;
   if(m_pars.bin != pars.bin) 			m_pars_modify_mask |= PARMODIFYMASK_BIN;
 
+  bool previousLive = m_pars.live;
   m_pars = pars;
+  m_pars.live = previousLive;
   _apply_params(aLock);
+  aLock.unlock();
+
+  _setLive(pars.live);
 }
 void CtVideo::getParameters(Parameters &pars) const
 {
@@ -666,6 +671,8 @@ void CtVideo::_read_hw_params()
 
 void CtVideo::_check_video_mode(VideoMode aMode)
 {
+  DEB_MEMBER_FUNCT();
+
   std::list<VideoMode> aModeList;
   getSupportedVideoMode(aModeList);
   bool findMode = false;
@@ -674,7 +681,10 @@ void CtVideo::_check_video_mode(VideoMode aMode)
     findMode = aMode == *i;
 
   if(!findMode)
-    throw LIMA_CTL_EXC(Error,"Video mode is not available for this camera");
+    {
+      THROW_CTL_ERROR(InvalidValue) << "Video mode: " <<
+	DEB_VAR1(aMode) << " is not available for this camera";
+    }
 }
 
 /** @brief an Acquisition will start so,

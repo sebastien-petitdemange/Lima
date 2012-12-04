@@ -147,7 +147,19 @@ namespace lima
     bool		m_stopping_live; ///< variable to avoid deadlock when stopping live
     bool		m_active_flag; ///< flag if video is active
   };
-
+  inline std::ostream& operator<<(std::ostream &os,
+				  const CtVideo::Parameters& params)
+    {
+      os << "<"
+	 << "live=" << (params.live ? "Yes" : "No") << ", "
+	 << "exposure=" << params.exposure << ", "
+	 << "gain=" << params.gain << ", "
+	 << "mode=" << convert_2_string(params.mode) << ", "
+	 << "roi=" << params.roi << ", "
+	 << "bin=" << params.bin
+	 << ">";
+      return os;
+    }
   inline std::ostream& operator<<(std::ostream &os,
 				  CtVideo::Image& im)
   {

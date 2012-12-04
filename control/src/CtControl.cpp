@@ -34,7 +34,9 @@
 #include "CtAccumulation.h"
 #include "CtVideo.h"
 #include "CtEvent.h"
-
+#ifdef WITH_CONFIG
+#include "CtConfig.h"
+#endif
 #include "SoftOpInternalMgr.h"
 #include "SoftOpExternalMgr.h"
 
@@ -160,6 +162,11 @@ CtControl::CtControl(HwInterface *hw) :
   //Sps image
   m_ct_sps_image = new CtSpsImage();
 #endif
+
+#ifdef WITH_CONFIG
+  m_ct_config = new CtConfig(*this);
+#endif
+
   m_op_int = new SoftOpInternalMgr();
   m_op_ext = new SoftOpExternalMgr();
 
@@ -180,6 +187,9 @@ CtControl::~CtControl()
   delete m_ct_saving;
 #ifdef WITH_SPS_IMAGE
   delete m_ct_sps_image;
+#endif
+#ifdef WITH_CONFIG
+  delete m_ct_config;
 #endif
   delete m_ct_acq;
   delete m_ct_image;

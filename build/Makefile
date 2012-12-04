@@ -73,6 +73,10 @@ ifneq ($(COMPILE_EDFGZ_SAVING),0)
 CORE_LDLIBS += -lz
 endif
 
+ifneq ($(COMPILE_CONFIG),0)
+CORE_LDLIBS += -L../third-party/libconfig/lib/.libs -Wl,-rpath=$(shell pwd)/../third-party/libconfig/lib/.libs  -lconfig++
+endif
+
 ifneq ($(COMPILE_CORE),0)
 
 core-name	:= core
