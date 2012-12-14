@@ -36,7 +36,8 @@ namespace lima
   {
     DEB_CLASS_NAMESPC(DebModControl,"Config","Control");
   public:
-    enum Module {All = -1,Acquisition,Saving,Image,Accumulation,Video,Shutter};
+    enum Module {All = -1,Acquisition,Saving,
+		 Image,Accumulation,Video,Shutter,Camera};
 
     CtConfig(CtControl &);
     ~CtConfig();
@@ -69,6 +70,8 @@ namespace lima
     CtControl&		m_ctrl;
     libconfig::Config*	m_config;
     std::string		m_file_name;
+    bool		m_has_hwconfig;
+    HwConfigCtrlObj*	m_hwconfig;
   };
 }
 #endif

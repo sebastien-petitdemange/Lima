@@ -29,6 +29,9 @@
 #include "CtShutter.h"
 #include "CtVideo.h"
 
+#include "HwConfigCtrlObj.h"
+#include "HwInterface.h"
+
 using namespace lima;
 
 //Static function
@@ -329,7 +332,18 @@ static void _fill_context_with_shutter_parameters(CtControl& ctrl,
   open_time_setting = pars.open_time;
 }
 
+static void _fill_context_with_camera_parameters(CtControl& ctrl,
+						 HwConfigCtrlObj* hwconfig,
+						 libconfig::Setting& setting)
+{
+  libconfig::Setting &camera_setting = setting.add("Camera",
+						   libconfig::Setting::TypeGroup);
+  HwConfigCtrlObj::Setting aSetting(&camera_setting);
+  hwconfig->store(aSetting);
+}
+
 static void _fill_context_with_current_config(CtControl& ctrl,
+					      HwConfigCtrlObj* hwconfig,
 					      CtConfig::Module module,
 					      libconfig::Setting& setting)
 {
@@ -357,6 +371,11 @@ static void _fill_context_with_current_config(CtControl& ctrl,
   if(module == CtConfig::All ||
      module == CtConfig::Shutter)
     _fill_context_with_shutter_parameters(ctrl,setting);
+  //Camera
+  if(hwconfig &&
+     (module == CtConfig::All ||
+      module == CtConfig::Shutter))
+    _fill_context_with_camera_parameters(ctrl,hwconfig,setting);
 }
 
 static void _apply_acquisition_parameters(CtControl &ctrl,
@@ -606,9 +625,23 @@ static void _apply_shutter_parameters(CtControl &ctrl,
   shutter->setParameters(pars);
 }
 
+static void _apply_camera_parameters(CtControl &ctrl,
+				     HwConfigCtrlObj *hwconfig,
+				     libconfig::Setting& setting)
+{
+  if(!setting.exists("Camera") || !hwconfig)
+    return;
+
+  libconfig::Setting &camera_setting = setting["Camera"];
+  HwConfigCtrlObj::Setting aSetting(&camera_setting);
+  hwconfig->restore(aSetting);
+}
 static void _apply_context(CtControl &ctrl,
+			   HwConfigCtrlObj* hwconfig,
 			   libconfig::Setting& setting)
 {
+  //Camera
+  _apply_camera_parameters(ctrl,hwconfig,setting);
   //Acquisition
   _apply_acquisition_parameters(ctrl,setting);
   //Saving
@@ -624,6 +657,7 @@ static void _apply_context(CtControl &ctrl,
 }
 
 static void _remove_context_if_exists(CtConfig::Module module,
+				      bool has_hwconfig,
 				      libconfig::Setting& setting)
 {
     //Acquisition
@@ -650,12 +684,19 @@ static void _remove_context_if_exists(CtConfig::Module module,
   if(module == CtConfig::All ||
      module == CtConfig::Shutter)
     _remove_if_exists(setting,"Shutter");
+  //Camera
+  if(has_hwconfig &&
+     (module == CtConfig::All ||
+      module == CtConfig::Camera))
+    _remove_if_exists(setting,"Camera");
 }
 
 CtConfig::CtConfig(CtControl &control) :
   m_ctrl(control),
   m_config(new libconfig::Config())
 {
+  HwInterface *hw = control.hwInterface();
+  m_has_hwconfig = hw->getHwCtrlObj(m_hwconfig);
 }
 
 CtConfig::~CtConfig()
@@ -738,7 +779,7 @@ void CtConfig::store(const std::string& alias,
 
   for(std::list<Module>::const_iterator i = modules_to_save.begin();
       i != modules_to_save.end();++i)
-    _fill_context_with_current_config(m_ctrl,*i,alias_setting);
+    _fill_context_with_current_config(m_ctrl,this->m_hwconfig,*i,alias_setting);
 }
 
 void CtConfig::storeAdd(const std::string& alias,
@@ -760,8 +801,8 @@ void CtConfig::storeAdd(const std::string& alias,
       for(std::list<Module>::const_iterator i = modules_to_save.begin();
 	  i != modules_to_save.end();++i)
 	{
-	  _remove_context_if_exists(*i,alias_setting);
-	  _fill_context_with_current_config(m_ctrl,*i,alias_setting);
+	  _remove_context_if_exists(*i,m_has_hwconfig,alias_setting);
+	  _fill_context_with_current_config(m_ctrl,m_hwconfig,*i,alias_setting);
 	}
     }
   else
@@ -789,7 +830,7 @@ void CtConfig::apply(const std::string& alias)
   try
     {  
       libconfig::Setting& alias_setting = root[alias];
-      _apply_context(m_ctrl,alias_setting);
+      _apply_context(m_ctrl,m_hwconfig,alias_setting);
     }
   catch(libconfig::SettingTypeException &exp)
     {
@@ -815,7 +856,7 @@ void CtConfig::remove(const std::string& alias,Module modules_to_remove)
   else if(root.exists(alias))
     {
       libconfig::Setting& alias_setting = root[alias];
-      _remove_context_if_exists(modules_to_remove,alias_setting);
+      _remove_context_if_exists(modules_to_remove,m_has_hwconfig,alias_setting);
     }
 }
 
@@ -835,7 +876,7 @@ void CtConfig::remove(const std::string& alias,
 	  break;
 	}
       else
-	_remove_context_if_exists(*i,alias_setting);
+	_remove_context_if_exists(*i,m_has_hwconfig,alias_setting);
     }
 }
 
