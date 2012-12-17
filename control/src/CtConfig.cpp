@@ -20,6 +20,7 @@
 // along with this program; if not, see <http://www.gnu.org/licenses/>.
 //###########################################################################
 #include <libconfig.h++>
+#include <unistd.h>
 
 #include "CtAccumulation.h"
 #include "CtAcquisition.h"

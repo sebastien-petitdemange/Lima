@@ -104,3 +104,4 @@ void HwConfigCtrlObj::Setting::setValue(const char* alias,
 {
   SET_VALUE(libconfig::Setting::TypeString);
 }
+

@@ -32,7 +32,7 @@ namespace libconfig
 
 namespace lima
 {
-  class CtConfig
+  class LIMACORE_API CtConfig
   {
     DEB_CLASS_NAMESPC(DebModControl,"Config","Control");
   public:

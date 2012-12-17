@@ -237,10 +237,10 @@ def main():
         makefile.extra_include_dirs = extraIncludes
 
         if platform.system() == 'Windows':
-            makefile.extra_libs = ['liblima%s' % modName,'libprocesslib']
+            makefile.extra_libs = ['liblima%s' % modName,'libprocesslib','libconfig++']
             if modName != 'core' :
                 makefile.extra_libs += ['liblimacore']
-            makefile.extra_cxxflags = ['/EHsc'] + extra_cxxflags
+            makefile.extra_cxxflags = ['/EHsc','/DWITH_CONFIG'] + extra_cxxflags
             #libpath = 'build\msvc\9.0\*\Debug'
             libpath = 'build\msvc\9.0\*\Release'
             #makefile.extra_lib_dirs = glob.glob(os.path.join(rootName('build'),'msvc','9.0','*','Release'))
@@ -248,7 +248,7 @@ def main():
             makefile.extra_lib_dirs += glob.glob(os.path.join(rootName(''),libpath))
             makefile.extra_lib_dirs += glob.glob(os.path.join(rootName('third-party\Processlib'), libpath))
             makefile.extra_lib_dirs += glob.glob(os.path.join(rootName('camera'),modName, libpath))
-
+            makefile.extra_lib_dirs += [os.path.join(rootName('third-party\libconfig'),'lib','libconfig++.Release')]
         else:
             makefile.extra_libs = ['pthread','lima%s' % modName]
             makefile.extra_cxxflags = ['-pthread', '-g','-DWITH_SPS_IMAGE','-DWITH_CONFIG'] + extra_cxxflags
