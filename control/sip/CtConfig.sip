@@ -52,6 +52,8 @@ public:
   void remove(const std::string&,
 	      const std::list<CtConfig::Module>&);
   void save();
+  void load();
+
   private:
   CtConfig(const CtConfig &);
 };

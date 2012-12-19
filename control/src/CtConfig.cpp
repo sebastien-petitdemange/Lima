@@ -718,43 +718,7 @@ void CtConfig::setFilename(const std::string &full_path)
   DEB_MEMBER_FUNCT();
   DEB_PARAM() << DEB_VAR1(full_path);
 
-  if(m_file_name == full_path)
-    return;
-
-  m_file_name.clear();
-
-  if(full_path.empty())		// memory config
-    return;
-
-  if(!access(full_path.c_str(),F_OK))
-    {
-      try
-	{
-	  m_config->readFile(full_path.c_str());
-	}
-      catch(libconfig::ParseException &exp)
-	{
-	  THROW_CTL_ERROR(Error) << exp.getError();
-	}
-      catch(libconfig::FileIOException &exp)
-	{
-	  THROW_CTL_ERROR(Error) << exp.what();
-	}
-    }
-  else
-    {
-      try
-	{
-	  m_config->writeFile(full_path.c_str());
-	}
-      catch(libconfig::FileIOException &exp)
-	{
-	  THROW_CTL_ERROR(Error) << exp.what();
-	}
-    }
-
   m_file_name = full_path;
-
 }
 
 void CtConfig::getFilename(std::string &full_path) const
@@ -862,7 +826,7 @@ void CtConfig::remove(const std::string& alias,Module modules_to_remove)
 }
 
 void CtConfig::remove(const std::string& alias,
-			     const std::list<Module>& modules_to_remove)
+		      const std::list<Module>& modules_to_remove)
 {
   libconfig::Setting& root = m_config->getRoot();
   if(!root.exists(alias)) return;
@@ -888,6 +852,24 @@ void CtConfig::save()
   try
     {
       m_config->writeFile(m_file_name.c_str());
+    }
+  catch(libconfig::FileIOException &exp)
+    {
+      THROW_CTL_ERROR(Error) << exp.what();
+    }
+}
+
+void CtConfig::load()
+{
+  DEB_MEMBER_FUNCT();
+
+  try
+    {
+      m_config->readFile(m_file_name.c_str());
+    }
+  catch(libconfig::ParseException &exp)
+    {
+      THROW_CTL_ERROR(Error) << exp.getError();
     }
   catch(libconfig::FileIOException &exp)
     {

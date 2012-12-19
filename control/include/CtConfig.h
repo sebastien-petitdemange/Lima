@@ -63,6 +63,7 @@ namespace lima
     void remove(const std::string&,
 		const std::list<Module>&);
     void save();
+    void load();
 
   private:
     CtConfig(const CtConfig &other): m_ctrl(other.m_ctrl) {}
