@@ -783,15 +783,15 @@ void CtConfig::store(const std::string& alias,
     _fill_context_with_current_config(m_ctrl,this->m_hwconfig,*i,alias_setting);
 }
 
-void CtConfig::storeAdd(const std::string& alias,
+void CtConfig::update(const std::string& alias,
 			Module module_to_save)
 {
   std::list<Module> modules_to_save;
   modules_to_save.push_back(module_to_save);
-  storeAdd(alias,modules_to_save);
+  update(alias,modules_to_save);
 }
 
-void CtConfig::storeAdd(const std::string& alias,
+void CtConfig::update(const std::string& alias,
 			const std::list<Module>& modules_to_save)
 
 {

@@ -51,10 +51,10 @@ namespace lima
     void store(const std::string& alias,
 	       const std::list<Module>&);
     // --- add current config to a context alias
-    void storeAdd(const std::string& alias,
-		  Module);
-    void storeAdd(const std::string& alias,
-		  const std::list<Module>&);
+    void update(const std::string& alias,
+		Module);
+    void update(const std::string& alias,
+		const std::list<Module>&);
     
     void getAlias(std::list<std::string>&) const;
     void apply(const std::string&);

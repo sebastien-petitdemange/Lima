@@ -40,10 +40,10 @@ public:
   void store(const std::string& alias,
 	     const std::list<CtConfig::Module>&);
   // --- add current config to a context alias
-  void storeAdd(const std::string& alias,
-		CtConfig::Module);
-  void storeAdd(const std::string& alias,
-		const std::list<CtConfig::Module>&);
+  void update(const std::string& alias,
+	      CtConfig::Module);
+  void update(const std::string& alias,
+	      const std::list<CtConfig::Module>&);
     
   void getAlias(std::list<std::string>& /Out/) const;
   void apply(const std::string&);
