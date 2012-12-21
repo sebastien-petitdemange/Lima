@@ -22,8 +22,10 @@
 #ifndef CTCONFIGCONTEXT_H
 #define CTCONFIGCONTEXT_H
 #include <string>
+#include <map>
 
 #include "CtControl.h"
+#include "ConfigUtils.h"
 
 namespace libconfig
 {
@@ -36,43 +38,71 @@ namespace lima
   {
     DEB_CLASS_NAMESPC(DebModControl,"Config","Control");
   public:
-    enum Module {All = -1,Acquisition,Saving,
-		 Image,Accumulation,Video,Shutter,Camera};
+    typedef const char* ModuleType;
+    static ModuleType All;
 
     CtConfig(CtControl &);
     ~CtConfig();
     
-    void setFilename(const std::string&);
-    void getFilename(std::string&) const;
 
     // --- set current config into a context alias
     void store(const std::string& alias,
-	       Module);
+	       ModuleType);
     void store(const std::string& alias,
-	       const std::list<Module>&);
+	       const std::list<ModuleType>&);
     // --- add current config to a context alias
     void update(const std::string& alias,
-		Module);
+		ModuleType);
     void update(const std::string& alias,
-		const std::list<Module>&);
-    
+		const std::list<ModuleType>&);
+    // --- get all context aliases
     void getAlias(std::list<std::string>&) const;
+    // --- get all register module type 
+    void getAvailableModule(std::list<ModuleType>&) const;
+    // --- apply context to current parameters
     void apply(const std::string&);
     void pop(const std::string&);
-    void remove(const std::string&,Module = All);
+    // --- remove part/all context
+    void remove(const std::string&,ModuleType = All);
     void remove(const std::string&,
-		const std::list<Module>&);
+		const std::list<ModuleType>&);
+    // --- file management
+    void setFilename(const std::string&);
+    void getFilename(std::string&) const;
+
     void save();
     void load();
 
+    // --- callback to manage extra module type
+    class ModuleTypeCallback
+    {
+      friend class CtConfig;
+    public:
+      explicit ModuleTypeCallback(ModuleType);
+
+      virtual void store(Setting&) = 0;
+      virtual void restore(const Setting &) = 0;
+
+      void ref();
+      void unref();
+    protected:
+      virtual ~ModuleTypeCallback();
+    private:
+      std::string	m_module_type;
+      int		m_ref_count;
+    };
+
+    void registerModule(ModuleTypeCallback*);
+    void unregisterModule(const std::string& module_type);
+
   private:
+    typedef std::map<std::string,ModuleTypeCallback*> ModuleMap;
     CtConfig(const CtConfig &other): m_ctrl(other.m_ctrl) {}
 
     CtControl&		m_ctrl;
     libconfig::Config*	m_config;
     std::string		m_file_name;
-    bool		m_has_hwconfig;
-    HwConfigCtrlObj*	m_hwconfig;
+    ModuleMap 		m_module_type;
   };
 }
 #endif

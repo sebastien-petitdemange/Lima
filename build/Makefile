@@ -56,7 +56,7 @@ create-links	= \
 # LIMA - CORE
 ############################
 
-CORE_LDFLAGS	:= -L../third-party/Processlib/build
+CORE_LDFLAGS	:= -L../third-party/Processlib/build -Wl,-rpath=$(shell pwd)/../third-party/Processlib/build
 CORE_LDLIBS	:= -lprocesslib -lrt
 
 ifneq ($(COMPILE_CBF_SAVING),0)

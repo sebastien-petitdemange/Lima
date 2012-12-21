@@ -24,11 +24,7 @@
 #define HWCONFIGCTRLOBJ_H
 #include "Debug.h"
 #include "LimaCompatibility.h"
-
-namespace libconfig
-{
-  class Setting;
-}
+#include "ConfigUtils.h"
 
 namespace lima
 {
@@ -37,32 +33,8 @@ namespace lima
   {
     DEB_CLASS(DebModHardware,"HwConfigCtrlObj");
   public:
-    class LIMACORE_API Setting
-    {
-      friend class CtConfig;
-    public:
-      Setting(libconfig::Setting* setting = NULL) : m_setting(setting) {}
-      // --- lookup
-      bool lookupValue(const char* alias,bool& value) const;
-      bool lookupValue(const char* alias,int& value) const;
-      bool lookupValue(const char* alias,long long& value) const;
-      bool lookupValue(const char* alias,double& value) const;
-      bool lookupValue(const char* alias,const char*& value) const;
-      bool lookupValue(const char* alias,std::string &value) const;
-
-      // --- modifiers
-      void setValue(const char* alias,bool value);
-      void setValue(const char* alias,int value);
-      void setValue(const char* alias,long long value);
-      void setValue(const char* alias,double value);
-      void setValue(const char* alias,const char* value);
-      void setValue(const char* alias,const std::string &value);
-    private:
-      libconfig::Setting* m_setting;
-    };
-
-    HwConfigCtrlObj();
-    virtual ~HwConfigCtrlObj();
+    HwConfigCtrlObj() {}
+    virtual ~HwConfigCtrlObj() {}
     
     virtual void store(Setting&) = 0;
     virtual void restore(const Setting &) = 0;

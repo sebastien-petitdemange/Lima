@@ -30,6 +30,7 @@
 #include "HwInterface.h"
 #include "HwCap.h"
 #include "CtControl.h"
+#include "CtConfig.h"
 #include "Debug.h"
 
 namespace lima 
@@ -128,6 +129,9 @@ namespace lima
     void _setDefaultPars(Parameters* pars);
     void _apply();
     void _hwRead();
+
+    class _ConfigHandler;
+    CtConfig::ModuleTypeCallback* _getConfigHandler();
 
     HwSyncCtrlObj	*m_hw_sync;
     HwSyncCtrlObj::ValidRangesType	m_valid_ranges;

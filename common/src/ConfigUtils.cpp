@@ -19,47 +19,45 @@
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, see <http://www.gnu.org/licenses/>.
 //###########################################################################
-
 #include <libconfig.h++>
 
-#include <HwConfigCtrlObj.h>
-
+#include "ConfigUtils.h"
 using namespace lima;
 
-HwConfigCtrlObj::HwConfigCtrlObj()
-{
-}
-
-HwConfigCtrlObj::~HwConfigCtrlObj()
-{
-}
-
-bool HwConfigCtrlObj::Setting::lookupValue(const char* alias,bool& value) const
+bool Setting::get(const char* alias,bool& value) const
 {
   return m_setting->lookupValue(alias,value);
 }
 
-bool HwConfigCtrlObj::Setting::lookupValue(const char* alias,int& value) const
+bool Setting::get(const char* alias,int& value) const
 {
   return m_setting->lookupValue(alias,value);
 }
 
-bool HwConfigCtrlObj::Setting::lookupValue(const char* alias,long long& value) const
+bool Setting::get(const char* alias,long& value) const
+{
+  long long tmpValue;
+  bool rFlag = m_setting->lookupValue(alias,tmpValue);
+  if(rFlag) value = long(tmpValue);
+  return rFlag;
+}
+
+bool Setting::get(const char* alias,long long& value) const
 {
   return m_setting->lookupValue(alias,value);
 }
 
-bool HwConfigCtrlObj::Setting::lookupValue(const char* alias,double& value) const
+bool Setting::get(const char* alias,double& value) const
 {
   return m_setting->lookupValue(alias,value);
 }
 
-bool HwConfigCtrlObj::Setting::lookupValue(const char* alias,const char*& value) const
+bool Setting::get(const char* alias,const char*& value) const
 {
   return m_setting->lookupValue(alias,value);
 }
 
-bool HwConfigCtrlObj::Setting::lookupValue(const char* alias,std::string& value) const
+bool Setting::get(const char* alias,std::string& value) const
 {
   return m_setting->lookupValue(alias,value);
 }
@@ -74,34 +72,58 @@ bool HwConfigCtrlObj::Setting::lookupValue(const char* alias,std::string& value)
       nSetting = value;							\
     }
 
-void HwConfigCtrlObj::Setting::setValue(const char* alias,bool value)
+void Setting::set(const char* alias,bool value)
 {
   SET_VALUE(libconfig::Setting::TypeBoolean);
 }
 
-void HwConfigCtrlObj::Setting::setValue(const char* alias,int value)
+void Setting::set(const char* alias,int value)
 {
   SET_VALUE(libconfig::Setting::TypeInt);
 }
 
-void HwConfigCtrlObj::Setting::setValue(const char* alias,long long value)
+void Setting::set(const char* alias,long value)
 {
   SET_VALUE(libconfig::Setting::TypeInt64);
 }
 
-void HwConfigCtrlObj::Setting::setValue(const char* alias,double value)
+void Setting::set(const char* alias,long long value)
+{
+  SET_VALUE(libconfig::Setting::TypeInt64);
+}
+
+void Setting::set(const char* alias,double value)
 {
   SET_VALUE(libconfig::Setting::TypeFloat);
 }
 
-void HwConfigCtrlObj::Setting::setValue(const char* alias,const char* value)
+void Setting::set(const char* alias,const char* value)
 {
   SET_VALUE(libconfig::Setting::TypeString);
 }
 
-void HwConfigCtrlObj::Setting::setValue(const char* alias,
-					const std::string &value)
+void Setting::set(const char* alias,
+		  const std::string &value)
 {
   SET_VALUE(libconfig::Setting::TypeString);
 }
 
+// --- child management
+Setting Setting::addChild(const char *alias)
+{
+  libconfig::Setting &alias_setting = m_setting->add(alias,libconfig::Setting::TypeGroup);
+  return Setting(&alias_setting);
+}
+
+bool Setting::getChild(const char* alias,Setting& child) const
+{
+  bool returnFlag = m_setting->exists(alias);
+  if(returnFlag)
+    {
+      libconfig::Setting &alias_setting = m_setting->operator[](alias);
+      returnFlag = alias_setting.isGroup();
+      if(returnFlag)
+	child.m_setting = &alias_setting;
+    }
+  return returnFlag;
+}

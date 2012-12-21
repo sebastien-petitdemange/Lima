@@ -26,6 +26,7 @@
 
 #include "LimaCompatibility.h"
 #include "CtControl.h"
+#include "CtConfig.h"
 #include "Constants.h"
 #include "HwInterface.h"
 #include "HwDetInfoCtrlObj.h"
@@ -129,6 +130,7 @@ class LIMACORE_API CtMaxImageSizeCB : public HwMaxImageSizeCallback
 
 	
 class LIMACORE_API CtImage {
+	friend class CtControl;
 	DEB_CLASS_NAMESPC(DebModControl,"Image","Control");
     public:
 	friend class CtMaxImageSizeCB;
@@ -185,6 +187,9 @@ class LIMACORE_API CtImage {
 	void _setHSBin(const Bin &bin);
 	void _setHSFlip(const Flip &flip);
 	void _resetFlip();
+
+	class _ConfigHandler;
+	CtConfig::ModuleTypeCallback* _getConfigHandler();
 
 	HwDetInfoCtrlObj* 	m_hw_det;
 	CtMaxImageSizeCB* 	m_cb_size;

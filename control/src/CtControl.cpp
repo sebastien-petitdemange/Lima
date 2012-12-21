@@ -129,6 +129,8 @@ public:
 private:
   CtControl&	m_ct;
 };
+// --- helper
+
 
 CtControl::CtControl(HwInterface *hw) :
   m_hw(hw),
@@ -165,6 +167,24 @@ CtControl::CtControl(HwInterface *hw) :
 
 #ifdef WITH_CONFIG
   m_ct_config = new CtConfig(*this);
+
+#define REGISTER_CONFIG_MODULE(control)					\
+    modulePt = control->_getConfigHandler(); \
+    if(modulePt)							\
+      {									\
+	m_ct_config->registerModule(modulePt);				\
+	modulePt->unref();						\
+      }
+
+
+  //Add all core callback config
+  CtConfig::ModuleTypeCallback* modulePt;
+  REGISTER_CONFIG_MODULE(m_ct_acq);
+  REGISTER_CONFIG_MODULE(m_ct_saving);
+  REGISTER_CONFIG_MODULE(m_ct_image);
+  REGISTER_CONFIG_MODULE(m_ct_shutter);
+  REGISTER_CONFIG_MODULE(m_ct_accumulation);
+  REGISTER_CONFIG_MODULE(m_ct_video);
 #endif
 
   m_op_int = new SoftOpInternalMgr();

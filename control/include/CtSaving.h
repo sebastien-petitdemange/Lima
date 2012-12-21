@@ -32,6 +32,7 @@
 #include "LimaCompatibility.h"
 #include "ThreadUtils.h"
 #include "CtControl.h"
+#include "CtConfig.h"
 #include "HwSavingCtrlObj.h"
 
 struct Data;
@@ -394,6 +395,9 @@ namespace lima {
       bool _newFrameWrite(int);
       bool _checkHwFileFormat(const std::string&) const;
       void _ReadImage(Data&,int framenb);
+
+      class _ConfigHandler;
+      CtConfig::ModuleTypeCallback* _getConfigHandler();
   };
 
   inline const char* convert_2_string(CtSaving::FileFormat fileFormat)

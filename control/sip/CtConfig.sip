@@ -19,6 +19,143 @@
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, see <http://www.gnu.org/licenses/>.
 //###########################################################################
+class Setting;
+
+%ExportedHeaderCode
+#include <ConfigUtils.h>
+#include <../../third-party/libconfig/lib/libconfig.h++>
+
+inline int _fill_setting_with_dict(Setting &setting,
+				   PyObject *dict)
+{
+   PyObject *key, *value;
+   Py_ssize_t pos = 0;
+   int return_value = 0;
+   while(PyDict_Next(dict, &pos, &key, &value)) 
+     {
+       if(!PyString_Check(key))
+	 {
+	   PyErr_SetString(PyExc_ValueError,
+			   "key can only by string type");
+	   return_value = 1;
+	   break;
+	 }
+       
+       if(PyString_Check(value))
+	 setting.set(PyString_AS_STRING(key),
+		     PyString_AS_STRING(value));
+       else if(PyFloat_Check(value))
+	 setting.set(PyString_AS_STRING(key),
+		     PyFloat_AS_DOUBLE(value));
+       else if(PyLong_Check(value))
+	 {
+#if PY_VERSION_HEX >= 0x02070000
+	   int overflow;
+	   long cValue = PyLong_AsLongAndOverflow(value,overflow);
+	   if(overflow == 1 || overflow == -1)
+	     {
+	       PyErr_SetString(PyExc_ValueError,
+			       "don't manage big int (overflow)");
+	       return_value = 1;
+	       break;
+	     }
+#else
+	   long cValue = PyLong_AsLong(value);
+#endif
+	   setting.set(PyString_AS_STRING(key),
+		       cValue);
+	 }
+       else if(PyInt_Check(value))
+	 setting.set(PyString_AS_STRING(key),
+		     int(PyInt_AsLong(value)));
+       else if(PyBool_Check(value))
+	 setting.set(PyString_AS_STRING(key),
+		     value == Py_True);
+       else if(PyDict_Check(value))
+	 {
+	   Setting child = setting.addChild(PyString_AS_STRING(key));
+	   return_value = _fill_setting_with_dict(child,value);
+	 }
+       else
+	 {
+	   PyErr_SetString(PyExc_ValueError,
+			   "Type not yet managed");
+	   return_value = 1;
+	   break;
+	 }
+     }
+   return return_value;
+}
+
+inline bool _build_dict_from_setting(const libconfig::Setting &setting,
+				     PyObject* dict)
+{
+  bool return_value = 0;
+  for(int i = 0;
+      !return_value && i < setting.getLength();++i)
+    {
+      const libconfig::Setting& sub_setting = setting[i];
+      PyObject* py_value;
+      switch(sub_setting.getType())
+	{
+	case libconfig::Setting::TypeInt:
+	  {
+	    int value = sub_setting;
+	    py_value = PyInt_FromLong(long(value));
+	    break;
+	  }
+	case libconfig::Setting::TypeInt64:
+	  {
+	    long long value = sub_setting;
+	    py_value = PyLong_FromLongLong(value);
+	    break;
+	  }
+	case libconfig::Setting::TypeFloat:
+	  {
+	    double value = sub_setting;
+	    py_value = PyFloat_FromDouble(value);
+	    break;
+	  }
+	case libconfig::Setting::TypeString:
+	  {
+	    const char* value = sub_setting;
+	    py_value = PyString_FromString(value);
+	    break;
+	  }
+	case libconfig::Setting::TypeBoolean:
+	  {
+	    bool value = sub_setting;
+	    py_value = value ? Py_True : Py_False;
+	    Py_INCREF(py_value);
+	    break;
+	  }
+	case libconfig::Setting::TypeGroup:
+	  {
+	    py_value = PyDict_New();
+	    return_value = _build_dict_from_setting(sub_setting,
+						    py_value);
+	    break;
+	  }
+	default:
+	  PyErr_SetString(PyExc_ValueError,
+			  "Type not yet managed");
+	  py_value = NULL;
+	  return_value = 1;
+	  break;
+	}
+
+      if(!return_value)
+	return_value = PyDict_SetItemString(dict,
+					    sub_setting.getName(),
+					    py_value);
+	  
+      if(py_value)
+	Py_DECREF(py_value);
+    }
+  return return_value;
+}
+%End
+
 class CtConfig
 {
 %TypeHeaderCode
@@ -26,87 +163,100 @@ class CtConfig
 using namespace lima;
 %End
 public:
-  enum Module {All = -1,Acquisition,Saving,Image,Accumulation,Video,Shutter};
+  static const char* All;
 
   CtConfig(CtControl &);
   ~CtConfig();
     
+  // --- set current config into a context alias
+  void store(const std::string& alias,
+	     const char*);
+  void store(const std::string& alias,
+	     const std::list<const char*>&);
+  // --- add current config to a context alias
+  void update(const std::string& alias,
+	      const char*);
+  void update(const std::string& alias,
+	      const std::list<const char*>&);
+    
+  void getAlias(std::list<std::string>& /Out/) const;
+  void getAvailableModule(std::list<const char*>& /Out/) const;
+
+  void apply(const std::string&);
+  void pop(const std::string&);
+  void remove(const std::string&,const char* = CtConfig::All);
+  void remove(const std::string&,
+	      const std::list<const char*>&);
+
   void setFilename(const std::string&);
   void getFilename(std::string& /Out/) const;
 
-  // --- set current config into a context alias
-  void store(const std::string& alias,
-	     CtConfig::Module);
-  void store(const std::string& alias,
-	     const std::list<CtConfig::Module>&);
-  // --- add current config to a context alias
-  void update(const std::string& alias,
-	      CtConfig::Module);
-  void update(const std::string& alias,
-	      const std::list<CtConfig::Module>&);
-    
-  void getAlias(std::list<std::string>& /Out/) const;
-  void apply(const std::string&);
-  void pop(const std::string&);
-  void remove(const std::string&,CtConfig::Module = CtConfig::All);
-  void remove(const std::string&,
-	      const std::list<CtConfig::Module>&);
   void save();
   void load();
-
-  private:
-  CtConfig(const CtConfig &);
-};
-
-%MappedType std::list<CtConfig::Module>
-{
+  
+  class ModuleTypeCallback
+    {
 %TypeHeaderCode
-#include <list>
 #include <CtConfig.h>
+using namespace lima;
 %End
 
-%ConvertToTypeCode
-if(sipIsErr == NULL)
- return PySequence_Check(sipPy);
 
-*sipCppPtr = new std::list<CtConfig::Module>(PyList_Size(sipPy));
-for(int i = 0;i < PyList_Size(sipPy);++i)
-{
-  PyObject *itemPt = PyList_GetItem(sipPy,i);
-  int state;
-#if (SIP_VERSION > 0x040800)
-  CtConfig::Module *modulePt = (CtConfig::Module*)sipConvertToType(itemPt,sipType_CtConfig_Module, sipTransferObj,SIP_NOT_NONE, &state,sipIsErr);
-#else
-  CtConfig::Module *modulePt = (CtConfig::Module*)sipConvertToInstance(itemPt,sipClass_CtConfig_Module, sipTransferObj,SIP_NOT_NONE, &state,sipIsErr);
-#endif
-  if(!*sipIsErr)
-  {
-    if(modulePt)
-      (*sipCppPtr)->push_back(CtConfig::Module(*modulePt));
-  }
-#if (SIP_VERSION >= 0x040800)
-  sipReleaseType(modulePt,sipType_CtConfig_Module,state);
-#else
-  sipReleaseInstance(modulePt,sipClass_CtConfig_Module,state);
-#endif
-}
-return sipGetState(sipTransferObj);
+    public:
+      explicit ModuleTypeCallback(const char*);
+
+      virtual SIP_PYDICT store() = 0 [void (Setting&)];
+%MethodCode
+sipIsErr = 1;			// should never happen
 %End
 
-%ConvertFromTypeCode
-PyObject *returnList =  PyList_New(sipCpp->size());
-int aPos = 0;
-for(std::list<CtConfig::Module>::iterator i = sipCpp->begin();
-    i != sipCpp->end();++i,++aPos)
-{
-#if (SIP_VERSION >= 0x040800)
-  PyObject *aModulePt = sipConvertFromEnum(*i,sipType_CtConfig_Module); 
-#else
-  PyObject *aModulePt = sipConvertFromInstance(&(*i),sipClass_CtConfig_Module,NULL); 
-#endif
-  PyList_SET_ITEM(returnList,aPos,aModulePt);
-  Py_DECREF(aModulePt);
-}
-return returnList;
+%VirtualCatcherCode
+      PyObject *result;
+      result = sipCallMethod(&sipIsErr, sipMethod,"");
+      if(result)
+	{
+	  if(!PyDict_Check(result))
+	    {
+	      PyErr_SetString(PyExc_ValueError,
+			      "Only dictionnary is allowed");
+	      sipIsErr = 1;
+	    }
+	  else
+	    sipIsErr = _fill_setting_with_dict(a0,result);
+	}
 %End
+virtual void restore(SIP_PYDICT) = 0 [void (const Setting&)];
+%MethodCode
+sipIsErr = 1;			// should never happen
+%End
+%VirtualCatcherCode
+      const libconfig::Setting* setting = a0.get_raw_setting();
+      if(setting && setting->isGroup())
+	{
+	  PyObject *dict = PyDict_New();
+	  sipIsErr = _build_dict_from_setting(*setting,dict);
+	  if(!sipIsErr)
+	    sipCallMethod(&sipIsErr,sipMethod,"R",dict);
+
+	  Py_DECREF(dict);
+	}
+      else
+	sipIsErr = 1;
+
+%End
+    protected:
+      virtual ~ModuleTypeCallback();
+%MethodCode
+      Py_BEGIN_ALLOW_THREADS
+      sipCpp->unref();
+      sipCppV = NULL;
+      Py_END_ALLOW_THREADS
+%End
+    };
+
+  void registerModule(ModuleTypeCallback*);
+  void unregisterModule(const std::string& module_type);
+
+private:
+  CtConfig(const CtConfig &);
 };

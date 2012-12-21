@@ -27,6 +27,7 @@
 #include "SizeUtils.h"
 #include "HwInterface.h"
 #include "HwShutterCtrlObj.h"
+#include "CtConfig.h"
 
 #include <vector>
 
@@ -69,6 +70,9 @@ namespace lima {
   private:
     void apply();		/* internal/CtControl call only */
     void reset();		/* internal/CtControl call only */
+    
+    class _ConfigHandler;
+    CtConfig::ModuleTypeCallback* _getConfigHandler();
 
     bool 		m_has_shutter;
     HwShutterCtrlObj* 	m_hw_shutter;

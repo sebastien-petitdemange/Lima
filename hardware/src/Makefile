@@ -19,8 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 ############################################################################
-include ../../config.inc
-
 hw-objs := HwInterface.o HwCap.o HwSyncCtrlObj.o HwFrameInfo.o \
 	   HwFrameCallback.o HwBufferCtrlObj.o HwBufferMgr.o \
 	   HwShutterCtrlObj.o HwMaxImageSizeCallback.o HwDetInfoCtrlObj.o \
@@ -31,15 +29,6 @@ hw-objs := HwInterface.o HwCap.o HwSyncCtrlObj.o HwFrameInfo.o \
 SRCS = $(hw-objs:.o=.cpp)
 
 CXXFLAGS += -I../include -I../../common/include -Wall -pthread -fPIC -g
-
-ifndef COMPILE_CONFIG
-COMPILE_CONFIG = 0
-endif
-
-ifneq ($(COMPILE_CONFIG),0)
-hw-objs += HwConfigCtrlObj.o
-CXXFLAGS += -I../../third-party/libconfig/lib
-endif
 
 all:	Hw.o
 
