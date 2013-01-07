@@ -21,6 +21,7 @@
 //###########################################################################
 #ifndef CONFIGUTILS_H
 #define CONFIGUTILS_H
+#include "Debug.h"
 #include "LimaCompatibility.h"
 
 namespace libconfig
@@ -31,6 +32,7 @@ namespace lima
 {
   class LIMACORE_API Setting
   {
+    DEB_CLASS_NAMESPC(DebModCommon,"Setting","Common");
   public:
     Setting(libconfig::Setting* setting = NULL) : m_setting(setting) {}
     // --- lookup

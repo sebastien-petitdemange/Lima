@@ -31,129 +31,153 @@ class Setting;
 inline int _fill_setting_with_dict(Setting &setting,
 				   PyObject *dict)
 {
-   PyObject *key, *value;
-   Py_ssize_t pos = 0;
-   int return_value = 0;
-   while(PyDict_Next(dict, &pos, &key, &value)) 
-     {
-       if(!PyString_Check(key))
-	 {
-	   PyErr_SetString(PyExc_ValueError,
-			   "key can only by string type");
-	   return_value = 1;
-	   break;
-	 }
+  PyObject *key, *value;
+  Py_ssize_t pos = 0;
+  int return_value = 0;
+  try
+    {
+      while(PyDict_Next(dict, &pos, &key, &value))
+	{
+	  if(!PyString_Check(key))
+	    {
+	      PyErr_SetString(PyExc_ValueError,
+			      "key can only by string type");
+	      return_value = 1;
+	      break;
+	    }
        
-       if(PyString_Check(value))
-	 setting.set(PyString_AS_STRING(key),
-		     PyString_AS_STRING(value));
-       else if(PyFloat_Check(value))
-	 setting.set(PyString_AS_STRING(key),
-		     PyFloat_AS_DOUBLE(value));
-       else if(PyLong_Check(value))
-	 {
+	  if(PyString_Check(value))
+	    setting.set(PyString_AS_STRING(key),
+			PyString_AS_STRING(value));
+	  else if(PyFloat_Check(value))
+	    setting.set(PyString_AS_STRING(key),
+			PyFloat_AS_DOUBLE(value));
+	  else if(PyLong_Check(value))
+	    {
 #if PY_VERSION_HEX >= 0x02070000
-	   int overflow;
-	   long cValue = PyLong_AsLongAndOverflow(value,overflow);
-	   if(overflow == 1 || overflow == -1)
-	     {
-	       PyErr_SetString(PyExc_ValueError,
-			       "don't manage big int (overflow)");
-	       return_value = 1;
-	       break;
-	     }
+	      int overflow;
+	      long cValue = PyLong_AsLongAndOverflow(value,overflow);
+	      if(overflow == 1 || overflow == -1)
+		{
+		  PyErr_SetString(PyExc_ValueError,
+				  "don't manage big int (overflow)");
+		  return_value = 1;
+		  break;
+		}
 #else
-	   long cValue = PyLong_AsLong(value);
+	      long cValue = PyLong_AsLong(value);
 #endif
-	   setting.set(PyString_AS_STRING(key),
-		       cValue);
-	 }
-       else if(PyInt_Check(value))
-	 setting.set(PyString_AS_STRING(key),
-		     int(PyInt_AsLong(value)));
-       else if(PyBool_Check(value))
-	 setting.set(PyString_AS_STRING(key),
-		     value == Py_True);
-       else if(PyDict_Check(value))
-	 {
-	   Setting child = setting.addChild(PyString_AS_STRING(key));
-	   return_value = _fill_setting_with_dict(child,value);
-	 }
-       else
-	 {
-	   PyErr_SetString(PyExc_ValueError,
-			   "Type not yet managed");
-	   return_value = 1;
-	   break;
-	 }
-     }
-   return return_value;
+	      setting.set(PyString_AS_STRING(key),
+			  cValue);
+	    }
+	  else if(PyInt_Check(value))
+	    setting.set(PyString_AS_STRING(key),
+			int(PyInt_AsLong(value)));
+	  else if(PyBool_Check(value))
+	    setting.set(PyString_AS_STRING(key),
+			value == Py_True);
+	  else if(PyDict_Check(value))
+	    {
+	      Setting child = setting.addChild(PyString_AS_STRING(key));
+	      return_value = _fill_setting_with_dict(child,value);
+	    }
+	  else
+	    {
+	      PyErr_SetString(PyExc_ValueError,
+			      "Type not yet managed");
+	      return_value = 1;
+	      break;
+	    }
+	}
+    }
+  catch(...)
+    {
+      Py_BEGIN_ALLOW_THREADS;
+      throw;
+      Py_END_ALLOW_THREADS;
+    }
+  return return_value;
 }
 
 inline bool _build_dict_from_setting(const libconfig::Setting &setting,
 				     PyObject* dict)
 {
   bool return_value = 0;
-  for(int i = 0;
-      !return_value && i < setting.getLength();++i)
+  try
     {
-      const libconfig::Setting& sub_setting = setting[i];
-      PyObject* py_value;
-      switch(sub_setting.getType())
+      for(int i = 0;
+	  !return_value && i < setting.getLength();++i)
 	{
-	case libconfig::Setting::TypeInt:
-	  {
-	    int value = sub_setting;
-	    py_value = PyInt_FromLong(long(value));
-	    break;
-	  }
-	case libconfig::Setting::TypeInt64:
-	  {
-	    long long value = sub_setting;
-	    py_value = PyLong_FromLongLong(value);
-	    break;
-	  }
-	case libconfig::Setting::TypeFloat:
-	  {
-	    double value = sub_setting;
-	    py_value = PyFloat_FromDouble(value);
-	    break;
-	  }
-	case libconfig::Setting::TypeString:
-	  {
-	    const char* value = sub_setting;
-	    py_value = PyString_FromString(value);
-	    break;
-	  }
-	case libconfig::Setting::TypeBoolean:
-	  {
-	    bool value = sub_setting;
-	    py_value = value ? Py_True : Py_False;
-	    Py_INCREF(py_value);
-	    break;
-	  }
-	case libconfig::Setting::TypeGroup:
-	  {
-	    py_value = PyDict_New();
-	    return_value = _build_dict_from_setting(sub_setting,
-						    py_value);
-	    break;
-	  }
-	default:
-	  PyErr_SetString(PyExc_ValueError,
-			  "Type not yet managed");
-	  py_value = NULL;
-	  return_value = 1;
-	  break;
-	}
+	  const libconfig::Setting& sub_setting = setting[i];
+	  PyObject* py_value;
+	  switch(sub_setting.getType())
+	    {
+	    case libconfig::Setting::TypeInt:
+	      {
+		int value = sub_setting;
+		py_value = PyInt_FromLong(long(value));
+		break;
+	      }
+	    case libconfig::Setting::TypeInt64:
+	      {
+		long long value = sub_setting;
+		py_value = PyLong_FromLongLong(value);
+		break;
+	      }
+	    case libconfig::Setting::TypeFloat:
+	      {
+		double value = sub_setting;
+		py_value = PyFloat_FromDouble(value);
+		break;
+	      }
+	    case libconfig::Setting::TypeString:
+	      {
+		const char* value = sub_setting;
+		py_value = PyString_FromString(value);
+		break;
+	      }
+	    case libconfig::Setting::TypeBoolean:
+	      {
+		bool value = sub_setting;
+		py_value = (value ? Py_True : Py_False);
+		Py_INCREF(py_value);
+		break;
+	      }
+	    case libconfig::Setting::TypeGroup:
+	      {
+		py_value = PyDict_New();
+		return_value = _build_dict_from_setting(sub_setting,
+							py_value);
+		break;
+	      }
+	    default:
+	      PyErr_SetString(PyExc_ValueError,
+			      "Type not yet managed");
+	      py_value = NULL;
+	      return_value = 1;
+	      break;
+	    }
 
-      if(!return_value)
-	return_value = PyDict_SetItemString(dict,
-					    sub_setting.getName(),
-					    py_value);
+	  if(!return_value)
+	    return_value = PyDict_SetItemString(dict,
+						sub_setting.getName(),
+						py_value);
 	  
-      if(py_value)
-	Py_DECREF(py_value);
+	  if(py_value)
+	    Py_DECREF(py_value);
+	}
+    }
+  catch(libconfig::ConfigException& exc)
+    {
+      PyErr_SetString(PyExc_ValueError,
+		      exc.what());
+      return_value = 1;
+    }
+  catch(...)
+    {
+      PyErr_SetString(PyExc_ValueError,
+		      "unknown exception");
+      return_value = 1;
     }
   return return_value;
 }

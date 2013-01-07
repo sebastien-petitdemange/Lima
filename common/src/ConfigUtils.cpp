@@ -21,6 +21,7 @@
 //###########################################################################
 #include <libconfig.h++>
 
+#include "Exceptions.h"
 #include "ConfigUtils.h"
 using namespace lima;
 
@@ -111,8 +112,20 @@ void Setting::set(const char* alias,
 // --- child management
 Setting Setting::addChild(const char *alias)
 {
-  libconfig::Setting &alias_setting = m_setting->add(alias,libconfig::Setting::TypeGroup);
-  return Setting(&alias_setting);
+  DEB_MEMBER_FUNCT();
+  try
+    {
+      libconfig::Setting &alias_setting = m_setting->add(alias,libconfig::Setting::TypeGroup);
+      return Setting(&alias_setting);
+    }
+  catch(libconfig::SettingNameException& exp)
+    {
+      THROW_COM_ERROR(Error) << exp.what();
+    }
+  catch(libconfig::SettingTypeException& exp)
+    {
+      THROW_COM_ERROR(Error) << exp.what();
+    }
 }
 
 bool Setting::getChild(const char* alias,Setting& child) const
