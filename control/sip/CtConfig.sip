@@ -23,6 +23,9 @@ class Setting;
 
 %ExportedHeaderCode
 #include <ConfigUtils.h>
+#ifdef WIN32
+#pragma warning( disable : 4290 )
+#endif
 #include <../../third-party/libconfig/lib/libconfig.h++>
 
 inline int _fill_setting_with_dict(Setting &setting,
