@@ -193,6 +193,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\..\..\common\src\ConfigUtils.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\..\..\common\src\Constants.cpp"
 				>
 			</File>
@@ -270,10 +274,6 @@
 			</File>
 			<File
 				RelativePath="..\..\..\..\hardware\src\HwCap.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\..\..\hardware\src\HwConfigCtrlObj.cpp"
 				>
 			</File>
 			<File

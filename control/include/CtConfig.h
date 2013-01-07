@@ -74,7 +74,7 @@ namespace lima
     void load();
 
     // --- callback to manage extra module type
-    class ModuleTypeCallback
+    class LIMACORE_API ModuleTypeCallback
     {
       friend class CtConfig;
     public:
