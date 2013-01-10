@@ -27,9 +27,7 @@
 #include "LimaCompatibility.h"
 #include "Debug.h"
 #include "HwFrameInfo.h"
-#ifdef __soleil_linux__
-        #include "DirectoryEventUtils.h"
-#endif
+#include "DirectoryEventUtils.h"
 
 namespace lima
 {
@@ -80,10 +78,8 @@ namespace lima
     public:
       virtual ~Callback() {}
 #ifdef __linux__
-#ifdef __soleil_linux__      
       virtual void prepare(const DirectoryEvent::Parameters &) {};
       virtual bool newFrameWritten(int frame_id) = 0;
-#endif      
 #endif
     };
     
@@ -113,10 +109,8 @@ namespace lima
 
     Callback*		m_callback;
 #ifdef __linux__
-#ifdef __soleil_linux__    
     DirectoryCallback*  m_dir_cbk;
     DirectoryEvent 	m_dir_event;
-#endif    
 #endif
   };
 }
