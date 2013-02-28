@@ -24,6 +24,7 @@ photonicscience
 marccd
 pilatus
 pointgrey
+tutorial
 *.obj
 lima*.exp
 lima*.lib

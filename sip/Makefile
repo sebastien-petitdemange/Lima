@@ -87,6 +87,10 @@ ifneq ($(COMPILE_POINTGREY), 0)
 sip-modules += pointgrey
 endif
 
+ifneq ($(COMPILE_TUTORIAL), 0)
+sip-modules += tutorial
+endif
+
 all:	src
 
 src:

@@ -136,4 +136,12 @@ ifneq ($(COMPILE_POINTGREY),0)
 sub-dirs += pointgrey
 endif
 
+ifndef COMPILE_TUTORIAL
+COMPILE_TUTORIAL = 0
+endif
+
+ifneq ($(COMPILE_TUTORIAL),0)
+sub-dirs += tutorial
+endif
+
 include ../global.inc
