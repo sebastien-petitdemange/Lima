@@ -192,4 +192,12 @@ ifneq ($(COMPILE_AVIEX),0)
 sub-dirs += aviex
 endif
 
+ifndef COMPILE_VIEWORKSVP
+COMPILE_VIEWORKSVP = 0
+endif
+
+ifneq ($(COMPILE_VIEWORKSVP),0)
+sub-dirs += vieworks-vp
+endif
+
 include ../global.inc
